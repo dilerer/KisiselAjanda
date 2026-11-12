@@ -1,8 +1,396 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+﻿@using System.Globalization
+@using System.Linq
+@{
+    ViewData["Title"] = "Ana Sayfa - Takvim";
+
+    var today = DateTime.Today;
+    var culture = new CultureInfo("tr-TR");
+
+    // Seçili görünüm: month, week veya day
+    var requestedView = Context.Request.Query["view"].ToString().ToLowerInvariant();
+    var currentView = requestedView == "week" || requestedView == "day" ? requestedView : "month";
+
+    // URL'den gelen tarihi güvenli şekilde oku. Tarih yoksa bugün kullanılır.
+    var selectedDate = today;
+    var requestedDate = Context.Request.Query["date"].ToString();
+    if (DateTime.TryParseExact(requestedDate, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+        DateTimeStyles.None, out var parsedDate))
+    {
+        selectedDate = parsedDate.Date;
+    }
+
+    // Ay görünümü için hesaplamalar
+    var displayedMonth = new DateTime(selectedDate.Year, selectedDate.Month, 1);
+    int daysInMonth = DateTime.DaysInMonth(displayedMonth.Year, displayedMonth.Month);
+    int firstDayOffset = ((int)displayedMonth.DayOfWeek + 6) % 7; // Pazartesi = 0
+    int totalCells = (int)Math.Ceiling((firstDayOffset + daysInMonth) / 7.0) * 7;
+
+    // Hafta görünümü pazartesi başlayacak şekilde hesaplanır.
+    int selectedDayOffset = ((int)selectedDate.DayOfWeek + 6) % 7;
+    var weekStart = selectedDate.AddDays(-selectedDayOffset).Date;
+    var weekEnd = weekStart.AddDays(6);
+
+    // Önceki / sonraki düğmeleri seçili görünüme göre hareket eder.
+    var navigationBaseDate = currentView == "month"
+        ? new DateTime(selectedDate.Year, selectedDate.Month, 1)
+        : selectedDate;
+
+    var previousDate = currentView == "month"
+        ? navigationBaseDate.AddMonths(-1)
+        : currentView == "week" ? navigationBaseDate.AddDays(-7) : navigationBaseDate.AddDays(-1);
+
+    var nextDate = currentView == "month"
+        ? navigationBaseDate.AddMonths(1)
+        : currentView == "week" ? navigationBaseDate.AddDays(7) : navigationBaseDate.AddDays(1);
+
+    var previousDateQuery = previousDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    var nextDateQuery = nextDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    var todayQuery = today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    var selectedDateQuery = selectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    // Şimdilik örnek etkinlikler. Veritabanına geçtiğimizde bu liste gerçek kayıtlarla değişecek.
+    var sampleEvents = new[]
+    {
+        new { Start = new DateTime(2026, 11, 5, 14, 0, 0), End = new DateTime(2026, 11, 5, 15, 0, 0), Name = "Veritabanı Yedekleme", Accent = "accent-amber" },
+        new { Start = new DateTime(2026, 11, 5, 19, 30, 0), End = new DateTime(2026, 11, 5, 20, 30, 0), Name = "Arayüz Kod İncelemesi", Accent = "accent-emerald" },
+        new { Start = new DateTime(2026, 11, 12, 11, 0, 0), End = new DateTime(2026, 11, 12, 12, 0, 0), Name = "Backend API Testi", Accent = "accent-blue" },
+        new { Start = new DateTime(2026, 11, 6, 10, 0, 0), End = new DateTime(2026, 11, 6, 11, 0, 0), Name = "Proje 4. Kontrol", Accent = "accent-rose" }
+    };
+
+    int eventCount = currentView == "month"
+        ? sampleEvents.Count(e => e.Start.Year == displayedMonth.Year && e.Start.Month == displayedMonth.Month)
+        : currentView == "week"
+            ? sampleEvents.Count(e => e.Start.Date >= weekStart && e.Start.Date <= weekEnd)
+            : sampleEvents.Count(e => e.Start.Date == selectedDate.Date);
+
+    string periodTitle;
+    if (currentView == "month")
+    {
+        periodTitle = displayedMonth.ToString("MMMM yyyy", culture);
+    }
+    else if (currentView == "week")
+    {
+        periodTitle = weekStart.Month == weekEnd.Month && weekStart.Year == weekEnd.Year
+            ? $"{weekStart.Day} – {weekEnd.Day} {weekEnd.ToString("MMMM yyyy", culture)}"
+            : $"{weekStart.ToString("d MMMM", culture)} – {weekEnd.ToString("d MMMM yyyy", culture)}";
+    }
+    else
+    {
+        periodTitle = selectedDate.ToString("d MMMM yyyy", culture);
+    }
+
+    var weekDays = Enumerable.Range(0, 7).Select(offset => weekStart.AddDays(offset)).ToList();
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<style>
+    /* İnce, koyu ve kenarlıksız kaydırma çubuğu */
+    * { scrollbar-width: thin; scrollbar-color: #3f3f46 transparent; }
+    *::-webkit-scrollbar { width: 6px; height: 6px; }
+    *::-webkit-scrollbar-track { background: transparent; border: none; }
+    *::-webkit-scrollbar-thumb { background: #3f3f46; border: none; border-radius: 999px; }
+    *::-webkit-scrollbar-thumb:hover { background: #52525b; }
+    *::-webkit-scrollbar-corner { background: transparent; }
+
+    .calendar-page { padding: 8px 4px; color: #e4e4e7; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .calendar-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 20px; }
+    .toolbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .month-title { font-size: 1.5rem; font-weight: 600; color: #fafafa; margin: 0; letter-spacing: -0.02em; text-transform: capitalize; }
+    .event-count { font-size: 0.75rem; color: #a1a1aa; background: #1c1c1f; padding: 4px 10px; border-radius: 6px; font-weight: 500; border: 1px solid #27272a; white-space: nowrap; }
+    .toolbar-right { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+    .nav-group { display: flex; background: #18181b; border: 1px solid #27272a; border-radius: 8px; overflow: hidden; }
+    .nav-btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; background: transparent; border: none; color: #a1a1aa; padding: 7px 12px; font-size: 0.85rem; cursor: pointer; transition: all 0.2s ease; }
+    .nav-btn:hover { background: #222226; color: #fafafa; }
+    .today-btn { border-left: 1px solid #27272a; border-right: 1px solid #27272a; font-weight: 500; color: #d4d4d8; }
+
+    .view-switcher { display: inline-flex; align-items: center; gap: 3px; padding: 3px; background: #18181b; border: 1px solid #27272a; border-radius: 8px; }
+    .view-option { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; padding: 6px 10px; border-radius: 6px; color: #a1a1aa; text-decoration: none; font-size: 0.78rem; font-weight: 500; transition: all 0.2s ease; }
+    .view-option:hover { color: #fafafa; background: #252529; }
+    .view-option.active { background: #e4e4e7; color: #18181b; font-weight: 650; }
+
+    .btn-add-event { background: #fafafa; color: #18181b; border: none; padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: transform 0.2s ease, background-color 0.2s ease; }
+    .btn-add-event:hover { background: #e4e4e7; transform: translateY(-1px); }
+    .btn-add-event:active { transform: translateY(0); }
+
+    .calendar-board { border: 1px solid #27272a; border-radius: 12px; overflow: hidden; background: #27272a; box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
+    .weekdays-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); background: #161618; border-bottom: 1px solid #27272a; }
+    .weekdays-row div { padding: 12px; font-size: 0.75rem; font-weight: 600; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.05em; }
+    .weekdays-row .weekend-label { color: #71717a; }
+    .days-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: #27272a; }
+
+    .day-box { background: #121214; min-height: 122px; padding: 10px; display: flex; flex-direction: column; justify-content: space-between; position: relative; transition: background-color 0.25s ease, box-shadow 0.25s ease; min-width: 0; }
+    .day-box:hover { background: #151518; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); z-index: 2; }
+    .day-box.muted { background: #0e0e10; }
+    .day-box.muted .day-number { color: #3f3f46; }
+    .day-header { display: flex; justify-content: space-between; align-items: center; gap: 4px; margin-bottom: 8px; }
+    .day-number { text-decoration: none; font-size: 0.85rem; font-weight: 500; color: #8e8e96; width: 26px; height: 26px; flex: 0 0 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.25s ease; }
+    .day-box:not(.muted):not(.is-today):hover .day-number { color: #f4f4f5; background: rgba(255,255,255,0.05); transform: translateY(-1px); }
+    .header-actions { display: flex; align-items: center; gap: 6px; }
+    .cell-add-btn { width: 22px; height: 22px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.08); background: #1f1f23; color: #a1a1aa; font-size: 0.65rem; display: flex; align-items: center; justify-content: center; opacity: 0; transform: translateY(3px) scale(0.9); transition: all 0.2s ease; }
+    .day-box:hover .cell-add-btn { opacity: 1; transform: translateY(0) scale(1); }
+    .cell-add-btn:hover { background: #2e2e34; color: #fff; border-color: rgba(255,255,255,0.18); }
+    .day-box.is-today { background: #16161a; }
+    .day-box.is-today:hover { background: #18181c; }
+    .day-box.is-today .day-number { background: #fafafa; color: #09090b; font-weight: 700; }
+    .today-dot-label { font-size: 0.68rem; font-weight: 600; color: #a1a1aa; background: #232329; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); white-space: nowrap; }
+
+    .events-container { display: flex; flex-direction: column; gap: 5px; margin-top: auto; min-width: 0; }
+    .event-item { display: flex; justify-content: space-between; align-items: center; gap: 4px; padding: 5px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 500; color: #e4e4e7; border-left: 3px solid #52525b; min-width: 0; transition: transform 0.2s ease, filter 0.2s ease; }
+    .event-item:hover { transform: translateX(3px); filter: brightness(1.12); }
+    .event-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 6px; min-width: 0; }
+    .event-time { font-size: 0.65rem; color: #a1a1aa; flex-shrink: 0; font-family: monospace; }
+    .accent-amber { border-left-color: #f59e0b; background: rgba(245,158,11,0.10); }
+    .accent-emerald { border-left-color: #10b981; background: rgba(16,185,129,0.10); }
+    .accent-blue { border-left-color: #3b82f6; background: rgba(59,130,246,0.10); }
+    .accent-rose { border-left-color: #f43f5e; background: rgba(244,63,94,0.10); }
+
+    /* Hafta görünümü */
+    .week-view-scroll { overflow-x: auto; background: #121214; }
+    .week-view { min-width: 820px; }
+    .week-view-header { display: grid; grid-template-columns: 66px repeat(7, minmax(0, 1fr)); background: #161618; border-bottom: 1px solid #27272a; }
+    .week-view-header > div { min-height: 58px; display: flex; align-items: center; justify-content: center; border-left: 1px solid #27272a; }
+    .week-view-header > div:first-child { border-left: none; }
+    .week-date { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #a1a1aa; font-size: 0.7rem; text-decoration: none; }
+    .week-date strong { font-size: 0.9rem; font-weight: 600; color: #d4d4d8; width: 27px; height: 27px; border-radius: 7px; display: inline-flex; justify-content: center; align-items: center; }
+    .week-date.today strong { background: #fafafa; color: #09090b; }
+    .week-view-body { display: grid; grid-template-columns: 66px minmax(0, 1fr); }
+    .week-time-axis { background: #141416; }
+    .week-time-label { height: 64px; padding: 5px 9px 0 0; text-align: right; color: #71717a; font-size: 0.68rem; font-family: monospace; border-bottom: 1px solid #27272a; }
+    .week-columns { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .week-day-column { min-width: 0; height: 896px; position: relative; border-left: 1px solid #27272a; background: #121214; }
+    .week-hour-line { height: 64px; border-bottom: 1px solid #27272a; }
+    .week-event { position: absolute; left: 4px; right: 4px; z-index: 2; overflow: hidden; border-radius: 5px; border-left: 3px solid #52525b; padding: 5px 6px; color: #e4e4e7; font-size: 0.68rem; line-height: 1.25; min-height: 40px; }
+    .week-event strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+    .week-event span { display: block; margin-top: 4px; color: #c4c4cc; font-size: 0.62rem; }
+
+    /* Gün görünümü: etkinlik kartları gerçek süreleri kadar alan kaplar. */
+    .day-view { background: #121214; padding: 8px 18px 18px; }
+    .day-view-heading { display: flex; align-items: center; justify-content: space-between; padding: 12px 4px 18px; border-bottom: 1px solid #27272a; margin-bottom: 4px; }
+    .day-view-heading strong { color: #f4f4f5; font-size: 0.95rem; }
+    .day-view-heading span { color: #71717a; font-size: 0.75rem; }
+    .day-timeline { display: grid; grid-template-columns: 76px minmax(0, 1fr); }
+    .day-time-axis { height: 1064px; }
+    .day-hour-label { box-sizing: border-box; height: 76px; color: #71717a; font-family: monospace; font-size: 0.72rem; padding: 10px 12px 0 0; text-align: right; }
+    .day-timeline-content { position: relative; height: 1064px; min-width: 0; }
+    .day-hour-lines { position: absolute; inset: 0; display: flex; flex-direction: column; pointer-events: none; }
+    .day-hour-line { box-sizing: border-box; flex: 0 0 76px; height: 76px; border-top: 1px solid #27272a; }
+    .day-event { position: absolute; left: 10px; right: 10px; z-index: 2; display: flex; flex-direction: column; justify-content: center; gap: 4px; box-sizing: border-box; overflow: hidden; padding: 7px 10px; border-radius: 6px; border-left: 3px solid #52525b; color: #e4e4e7; }
+    .day-event-title { font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .day-event-time { color: #a1a1aa; font-family: monospace; font-size: 0.72rem; white-space: nowrap; }
+    .day-event.compact { padding: 2px 8px; gap: 0; }
+    .day-event.compact .day-event-title { font-size: 0.72rem; }
+    .day-event.compact .day-event-time { display: none; }
+
+    @@media (max-width: 900px) {
+        .calendar-toolbar { align-items: flex-start; }
+        .toolbar-right { justify-content: flex-start; }
+        .day-box { min-height: 100px; padding: 7px; }
+        .event-item { padding: 4px 5px; font-size: 0.65rem; }
+        .event-time { font-size: 0.58rem; }
+    }
+
+    @@media (max-width: 620px) {
+        .toolbar-left { flex-wrap: wrap; }
+        .toolbar-right { width: 100%; justify-content: flex-start; }
+        .month-title { font-size: 1.25rem; }
+        .day-box { min-height: 82px; padding: 5px; }
+        .day-number { width: 22px; height: 22px; flex-basis: 22px; font-size: 0.75rem; }
+        .today-dot-label { display: none; }
+        .cell-add-btn { display: none; }
+        .weekdays-row div { padding: 9px 3px; font-size: 0.62rem; text-align: center; }
+        .day-view { padding: 6px 8px 12px; }
+        .day-timeline { grid-template-columns: 58px minmax(0, 1fr); }
+        .day-hour-label { padding-right: 8px; font-size: 0.66rem; }
+        .day-event { left: 6px; right: 6px; padding: 6px 8px; }
+        .day-event-title { font-size: 0.74rem; }
+        .day-event-time { font-size: 0.66rem; }
+    }
+</style>
+
+<div class="calendar-page">
+    <div class="calendar-toolbar">
+        <div class="toolbar-left">
+            <h2 class="month-title">@periodTitle</h2>
+            <span class="event-count">@eventCount Etkinlik</span>
+        </div>
+
+        <div class="toolbar-right">
+            <div class="nav-group">
+                <a class="nav-btn" href="?view=@currentView&amp;date=@previousDateQuery" title="Önceki" aria-label="Önceki">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </a>
+                <a class="nav-btn today-btn" href="?view=@currentView&amp;date=@todayQuery">Bugün</a>
+                <a class="nav-btn" href="?view=@currentView&amp;date=@nextDateQuery" title="Sonraki" aria-label="Sonraki">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </a>
+            </div>
+
+            <div class="view-switcher" aria-label="Takvim görünümü">
+                <a class="view-option @(currentView == "month" ? "active" : "")" href="?view=month&amp;date=@selectedDateQuery" aria-current="@(currentView == "month" ? "page" : null)">Ay</a>
+                <a class="view-option @(currentView == "week" ? "active" : "")" href="?view=week&amp;date=@selectedDateQuery" aria-current="@(currentView == "week" ? "page" : null)">Hafta</a>
+                <a class="view-option @(currentView == "day" ? "active" : "")" href="?view=day&amp;date=@selectedDateQuery" aria-current="@(currentView == "day" ? "page" : null)">Gün</a>
+            </div>
+
+            <button class="btn-add-event" type="button">
+                <i class="fa-solid fa-plus"></i> Yeni Kayıt
+            </button>
+        </div>
+    </div>
+
+    @if (currentView == "month")
+    {
+        <div class="calendar-board">
+            <div class="weekdays-row">
+                <div>Pzt</div>
+                <div>Sal</div>
+                <div>Çar</div>
+                <div>Per</div>
+                <div>Cum</div>
+                <div class="weekend-label">Cmt</div>
+                <div class="weekend-label">Paz</div>
+            </div>
+
+            <div class="days-grid">
+                @for (int cell = 0; cell < totalCells; cell++)
+                {
+                    var date = displayedMonth.AddDays(cell - firstDayOffset);
+                    bool isCurrentMonth = date.Month == displayedMonth.Month;
+                    bool isToday = date.Date == today.Date;
+                    var dateQuery = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                    var dayEvents = sampleEvents.Where(e => e.Start.Date == date.Date).ToList();
+
+                    <div class="day-box @(!isCurrentMonth ? "muted" : "") @(isToday ? "is-today" : "")">
+                        <div class="day-header">
+                            <a class="day-number" href="?view=day&amp;date=@dateQuery" title="@date.ToString("d MMMM yyyy", culture) gün görünümünü aç">@date.Day</a>
+                            <div class="header-actions">
+                                @if (isToday)
+                                {
+                                    <span class="today-dot-label">Bugün</span>
+                                }
+                                @if (isCurrentMonth)
+                                {
+                                    <button class="cell-add-btn" type="button" title="Bu güne not ekle" aria-label="Bu güne not ekle">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="events-container">
+                            @foreach (var calendarEvent in dayEvents)
+                            {
+                                <div class="event-item @calendarEvent.Accent" title="@calendarEvent.Name">
+                                    <span class="event-name">@calendarEvent.Name</span>
+                                    <span class="event-time">@calendarEvent.Start.ToString("HH:mm")</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else if (currentView == "week")
+    {
+        <div class="calendar-board week-view-scroll">
+            <div class="week-view">
+                <div class="week-view-header">
+                    <div></div>
+                    @foreach (var weekDay in weekDays)
+                    {
+                        bool isToday = weekDay.Date == today.Date;
+                        <div>
+                            <a class="week-date @(isToday ? "today" : "")" href="?view=day&amp;date=@weekDay.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)">
+                                <span>@weekDay.ToString("ddd", culture)</span>
+                                <strong>@weekDay.Day</strong>
+                            </a>
+                        </div>
+                    }
+                </div>
+
+                <div class="week-view-body">
+                    <div class="week-time-axis">
+                        @for (int hour = 8; hour < 22; hour++)
+                        {
+                            <div class="week-time-label">@hour.ToString("00"):00</div>
+                        }
+                    </div>
+
+                    <div class="week-columns">
+                        @foreach (var weekDay in weekDays)
+                        {
+                            <div class="week-day-column">
+                                @for (int hour = 8; hour < 22; hour++)
+                                {
+                                    <div class="week-hour-line"></div>
+                                }
+
+                                @foreach (var calendarEvent in sampleEvents.Where(e => e.Start.Date == weekDay.Date && e.Start.Hour >= 8 && e.Start.Hour < 22))
+                                {
+                                    var dayStart = weekDay.Date.AddHours(8);
+                                    int topPixels = (int)((calendarEvent.Start - dayStart).TotalMinutes / 60.0 * 64) + 4;
+                                    int heightPixels = Math.Max(20, (int)((calendarEvent.End - calendarEvent.Start).TotalMinutes / 60.0 * 64) - 8);
+                                    <div class="week-event @calendarEvent.Accent" style="top: @(topPixels)px; height: @(heightPixels)px;" title="@calendarEvent.Name">
+                                        <strong>@calendarEvent.Name</strong>
+                                        <span>@calendarEvent.Start.ToString("HH:mm") – @calendarEvent.End.ToString("HH:mm")</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        var dayTimelineStart = selectedDate.Date.AddHours(8);
+        var dayTimelineEnd = selectedDate.Date.AddHours(22);
+        var selectedDayEvents = sampleEvents
+            .Where(e => e.Start.Date == selectedDate.Date && e.End > dayTimelineStart && e.Start < dayTimelineEnd)
+            .OrderBy(e => e.Start)
+            .ToList();
+
+        <div class="calendar-board day-view">
+            <div class="day-view-heading">
+                <strong>@selectedDate.ToString("dddd, d MMMM yyyy", culture)</strong>
+                <span>@selectedDayEvents.Count etkinlik</span>
+            </div>
+
+            <div class="day-timeline">
+                <div class="day-time-axis">
+                    @for (int hour = 8; hour < 22; hour++)
+                    {
+                        <div class="day-hour-label">@hour.ToString("00"):00</div>
+                    }
+                </div>
+
+                <div class="day-timeline-content">
+                    <div class="day-hour-lines">
+                        @for (int hour = 8; hour < 22; hour++)
+                        {
+                            <div class="day-hour-line"></div>
+                        }
+                    </div>
+
+                    @foreach (var calendarEvent in selectedDayEvents)
+                    {
+                        var visibleStart = calendarEvent.Start < dayTimelineStart ? dayTimelineStart : calendarEvent.Start;
+                        var visibleEnd = calendarEvent.End > dayTimelineEnd ? dayTimelineEnd : calendarEvent.End;
+                        int topPixels = (int)((visibleStart - dayTimelineStart).TotalMinutes / 60.0 * 76) + 4;
+                        int durationPixels = (int)((visibleEnd - visibleStart).TotalMinutes / 60.0 * 76);
+                        int heightPixels = Math.Max(22, durationPixels - 8);
+                        bool isCompact = heightPixels < 48;
+                        var eventTooltip = $"{calendarEvent.Name} ({calendarEvent.Start:HH:mm} – {calendarEvent.End:HH:mm})";
+
+                        <div class="day-event @calendarEvent.Accent @(isCompact ? "compact" : "")"
+                             style="top: @(topPixels)px; height: @(heightPixels)px;"
+                             title="@eventTooltip">
+                            <span class="day-event-title">@calendarEvent.Name</span>
+                            <span class="day-event-time">@calendarEvent.Start.ToString("HH:mm") – @calendarEvent.End.ToString("HH:mm")</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
 </div>

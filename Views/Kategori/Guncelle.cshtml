@@ -1,0 +1,32 @@
+@model KisiselAjandaWeb.Models.Kategori
+@{
+    ViewData["Title"] = "Kategori Güncelle";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<div class="card card-warning">
+    <div class="card-header">
+        <h3 class="card-title">Kategori Bilgilerini Düzenle</h3>
+    </div>
+    
+    <form asp-controller="Kategori" asp-action="Guncelle" method="post">
+        <!-- Veritabanının hangi satırı güncelleyeceğini bilmesi için ID'yi gizlice yolluyoruz -->
+        <input type="hidden" asp-for="KategoriID" />
+        
+        <div class="card-body">
+            <div class="form-group">
+                <label>Kategori Adı</label>
+                <input type="text" class="form-control" asp-for="KategoriAdi" required>
+            </div>
+            <div class="form-group">
+                <label>Renk Kodu (Hex)</label>
+                <input type="color" class="form-control" asp-for="RenkKodu">
+            </div>
+        </div>
+        
+        <div class="card-footer">
+            <button type="submit" class="btn btn-warning"><i class="fas fa-save"></i> Değişiklikleri Kaydet</button>
+            <a href="/Kategori/Index" class="btn btn-secondary"><i class="fas fa-times"></i> İptal</a>
+        </div>
+    </form>
+</div>

@@ -11,7 +11,7 @@
 
     <style>
         body { background-color: #191919; color: #E0E0E0; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
-        .sidebar { height: 100vh; background-color: #202020; border-right: 1px solid #333; padding-top: 20px; position: fixed; width: 260px; }
+        .sidebar { height: 100vh; background-color: #202020; border-right: 1px solid #333; padding-top: 20px; position: fixed; width: 260px; display: flex; flex-direction: column; }
         .sidebar-brand { font-weight: 700; font-size: 1.25rem; color: #ffffff; padding: 0 20px 30px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #333; margin-bottom: 20px; }
         .sidebar a { color: #A0A0A0; text-decoration: none; padding: 12px 20px; display: block; font-weight: 500; transition: all 0.2s; margin: 0 12px 5px 12px; border-radius: 8px; }
         .sidebar a i { width: 24px; text-align: center; margin-right: 8px; }
@@ -21,16 +21,24 @@
     </style>
 </head>
 <body>
+    @{
+        var yol = Context.Request.Path.ToString().ToLower();
+    }
 
     <!-- Sol Menü (Sidebar) -->
     <div class="sidebar">
         <div class="sidebar-brand">
-    Çalışma Masam
-    </div>
-        <a href="/" class="active"><i class="fa-solid fa-calendar-days"></i> Grid Takvim</a>
-        <a href="#"><i class="fa-solid fa-folder-open"></i> Kategoriler & Notlar</a>
+            Çalışma Masam
+        </div>
+        <a href="/" class="@(yol == "/" || yol.StartsWith("/home") ? "active" : "")"><i class="fa-solid fa-calendar-days"></i> Grid Takvim</a>
+        <a href="/Yapilacaklar/Index" class="@(yol.StartsWith("/yapilacaklar") ? "active" : "")"><i class="fa-solid fa-list-check"></i> Yapılacaklar (To-Do)</a>
+        <a href="#"><i class="fa-solid fa-note-sticky"></i> Bağımsız Notlar</a>
         <a href="#"><i class="fa-solid fa-stopwatch"></i> Pomodoro</a>
         <a href="#"><i class="fa-solid fa-border-all"></i> Serbest Pano</a>
+
+        <div style="margin-top: auto; padding-bottom: 20px; border-top: 1px solid #333; padding-top: 15px;">
+            <a href="/Kategori/Index"><i class="fa-solid fa-gear"></i> Yönetim Paneli</a>
+        </div>
     </div>
 
     <!-- Ana Sayfa İçeriği Buraya Yüklenecek -->

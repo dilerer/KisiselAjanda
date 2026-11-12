@@ -1,0 +1,68 @@
+@model IEnumerable<KisiselAjandaWeb.Models.Yapilacak>
+@{
+    ViewData["Title"] = "Yapılacaklar (To-Do)";
+    Layout = "~/Views/Shared/_Layout.cshtml"; 
+}
+
+<style>
+    .todo-container { max-width: 800px; margin: 2rem auto; color: #e4e4e7; }
+    .todo-card { background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    .todo-header { background-color: #27272a; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #3f3f46; }
+    .todo-header h4 { margin: 0; font-size: 1.2rem; font-weight: 600; color: #fafafa; }
+    .todo-list { list-style: none; margin: 0; padding: 0; }
+    .todo-item { display: flex; align-items: center; padding: 16px 20px; border-bottom: 1px solid #27272a; transition: background-color 0.2s ease; }
+    .todo-item:hover { background-color: #222226; }
+    .todo-item:last-child { border-bottom: none; }
+    
+    /* Tıklanabilir Özel Checkbox */
+    .todo-check-link { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; border: 2px solid #52525b; margin-right: 15px; text-decoration: none; color: transparent; transition: all 0.2s ease; }
+    .todo-check-link:hover { border-color: #10b981; }
+    .todo-completed .todo-check-link { background-color: #10b981; border-color: #10b981; color: white; font-size: 12px; }
+    
+    .todo-text { font-size: 0.95rem; font-weight: 500; }
+    .todo-completed .todo-text { text-decoration: line-through; color: #71717a; }
+    
+    .todo-actions { margin-left: auto; display: flex; align-items: center; gap: 15px; }
+    .todo-date { font-size: 0.8rem; color: #a1a1aa; background-color: #27272a; padding: 4px 10px; border-radius: 6px; }
+    .btn-delete-todo { color: #71717a; transition: color 0.2s; text-decoration: none; }
+    .btn-delete-todo:hover { color: #ef4444; }
+</style>
+
+<div class="todo-container">
+    <div class="todo-card">
+        <div class="todo-header">
+            <h4><i class="fa-solid fa-list-check"></i> Yapılacaklar (To-Do)</h4>
+            <a href="/Yapilacaklar/Ekle" class="btn btn-outline-light btn-sm" style="border-radius: 8px;">
+                <i class="fa-solid fa-plus"></i> Yeni Görev
+            </a>
+        </div>
+        
+        <ul class="todo-list">
+            @if (Model != null && Model.Any())
+            {
+                foreach (var gorev in Model)
+                {
+                    <li class="todo-item @(gorev.TamamlandiMi ? "todo-completed" : "")">
+                        <a href="/Yapilacaklar/DurumDegistir/@gorev.GorevID" class="todo-check-link" title="Durumu Değiştir">
+                            <i class="fa-solid fa-check"></i>
+                        </a>
+                        <span class="todo-text">@gorev.GorevMetni</span>
+                        
+                        <div class="todo-actions">
+                            <span class="todo-date">@gorev.Tarih.ToString("dd.MM.yyyy")</span>
+                            <a href="/Yapilacaklar/Sil/@gorev.GorevID" class="btn-delete-todo" title="Görevi Sil" onclick="return confirm('Bu görevi silmek istediğinize emin misiniz?');">
+                                <i class="fa-solid fa-trash"></i>
+                            </a>
+                        </div>
+                    </li>
+                }
+            }
+            else
+            {
+                <li class="todo-item" style="justify-content: center; color: #71717a;">
+                    Henüz eklenmiş bir görev bulunmuyor.
+                </li>
+            }
+        </ul>
+    </div>
+</div>
