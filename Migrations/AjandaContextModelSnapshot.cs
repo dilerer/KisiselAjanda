@@ -40,7 +40,7 @@ namespace KisiselAjandaWeb.Migrations
                     b.Property<string>("Icerik")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("KategoriID")
+                    b.Property<int?>("KategoriID")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("OlusturulmaTarihi")
@@ -194,9 +194,7 @@ namespace KisiselAjandaWeb.Migrations
                 {
                     b.HasOne("KisiselAjandaWeb.Models.Kategori", "Kategori")
                         .WithMany("BagimsizNotlar")
-                        .HasForeignKey("KategoriID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("KategoriID");
 
                     b.Navigation("Kategori");
                 });

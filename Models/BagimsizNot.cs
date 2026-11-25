@@ -9,19 +9,19 @@ namespace KisiselAjandaWeb.Models
         [Key]
         public int NotID { get; set; }
 
-        // SQL'deki FOREIGN KEY bağlantısı (Kategoriye kancalama)
-        public int KategoriID { get; set; }
+        // Soru işareti (?) sayesinde artık kategori seçmek zorunlu değil
+        public int? KategoriID { get; set; }
         
         [ForeignKey("KategoriID")]
-        public virtual Kategori Kategori { get; set; }
+        public virtual Kategori? Kategori { get; set; }
 
         [MaxLength(200)]
         public string Baslik { get; set; }
 
-        public string Icerik { get; set; } // MaxLength yazmazsan SQL'de NVARCHAR(MAX) olur
+        public string Icerik { get; set; }
 
-        public DateTime OlusturulmaTarihi { get; set; } = DateTime.Now; // DEFAULT GETDATE()
+        public DateTime OlusturulmaTarihi { get; set; } = DateTime.Now;
 
-        public DateTime? GuncellenmeTarihi { get; set; } // Soru işareti boş geçilebilir (Null) demek
+        public DateTime? GuncellenmeTarihi { get; set; }
     }
 }

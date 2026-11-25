@@ -1,0 +1,205 @@
+@model IEnumerable<KisiselAjandaWeb.Models.PomodoroKaydi>
+@{
+    ViewData["Title"] = "Pomodoro Sayacı";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<style>
+    .pomo-wrapper { max-width: 850px; margin: 1rem auto; }
+    .pomo-card { background-color: #18181b; border: 1px solid #27272a; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.4); margin-bottom: 25px; }
+    .mode-btns { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .mode-btn { background-color: #27272a; color: #a1a1aa; border: 1px solid #3f3f46; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; }
+    .mode-btn.active, .mode-btn:hover { background-color: #10b981; color: #fff; border-color: #10b981; }
+    .custom-time-box { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 18px; }
+    .custom-min-input { width: 110px; background-color: #27272a; border: 1px solid #3f3f46; color: #fff; border-radius: 8px; padding: 7px 12px; text-align: center; }
+    .custom-min-input:focus { outline: none; border-color: #10b981; }
+    .timer-display { font-size: 5.5rem; font-weight: 700; font-family: monospace; color: #fafafa; letter-spacing: 4px; margin: 10px 0 18px 0; }
+    .pomo-input { max-width: 380px; margin: 0 auto 20px auto; background-color: #27272a; border: 1px solid #3f3f46; color: #fff; border-radius: 8px; padding: 10px 14px; text-align: center; }
+    .pomo-input:focus { background-color: #27272a; color: #fff; border-color: #10b981; box-shadow: none; }
+    .ctrl-btns { display: flex; justify-content: center; gap: 12px; }
+    .history-card { background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; overflow: hidden; }
+    .history-header { background-color: #27272a; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .history-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid #27272a; }
+    .history-item:last-child { border-bottom: none; }
+    .status-toast { margin-top: 15px; font-size: 0.9rem; color: #10b981; min-height: 22px; }
+</style>
+
+<div class="pomo-wrapper">
+    <div class="pomo-card">
+        <div class="mode-btns">
+            <button class="mode-btn active" onclick="modSec(25, 25*60, this)">25 dk</button>
+            <button class="mode-btn" onclick="modSec(45, 45*60, this)">45 dk</button>
+            <button class="mode-btn" onclick="modSec(5, 5*60, this)">5 dk Mola</button>
+            <button class="mode-btn" onclick="modSec(1, 5, this)" title="Sunum testi için 5 saniye sayar, 1 dk olarak kaydeder">Hızlı Test (5 sn)</button>
+        </div>
+
+        <div class="custom-time-box">
+            <span style="color: #a1a1aa; font-size: 0.9rem;">Özel Süre (dk):</span>
+            <input type="number" id="ozelDakika" class="custom-min-input" min="1" max="300" value="25" />
+            <button type="button" class="btn btn-outline-light btn-sm" style="border-radius: 8px; padding: 7px 14px;" onclick="ozelSureAyarla()">
+                Süreyi Ayarla
+            </button>
+        </div>
+
+        <input type="text" id="dersEtiketi" class="form-control pomo-input" placeholder="Ders / Konu Etiketi (Örn: C# MVC, Geometri)" maxlength="100" />
+
+        <div id="timerDisplay" class="timer-display">25:00</div>
+
+        <div class="ctrl-btns">
+            <button id="btnBaslat" class="btn btn-success px-4 py-2" style="background-color: #10b981; border: none; border-radius: 8px;" onclick="baslatDurdur()">
+                <i class="fa-solid fa-play me-1"></i> Başlat
+            </button>
+            <button class="btn btn-outline-secondary px-4 py-2" style="border-radius: 8px;" onclick="sifirla()">
+                <i class="fa-solid fa-rotate-right me-1"></i> Sıfırla
+            </button>
+        </div>
+
+        <div id="durumMesaji" class="status-toast"></div>
+    </div>
+
+    <div class="history-card">
+        <div class="history-header">
+            <h5 class="m-0"><i class="fa-solid fa-clock-rotate-left me-2"></i> Pomodoro Geçmişi</h5>
+            <span class="badge bg-success" style="background-color: #10b981 !important; font-size: 0.85rem;">
+                Bugün Toplam: @ViewBag.BugunToplamDakika dk
+            </span>
+        </div>
+
+        @if (Model != null && Model.Any())
+        {
+            foreach (var kayit in Model)
+            {
+                <div class="history-item">
+                    <div>
+                        <strong style="color: #fafafa;">@kayit.DersEtiketi</strong>
+                        <div style="font-size: 0.8rem; color: #71717a;">
+                            @kayit.Tarih.ToString("dd.MM.yyyy") • Başlangıç: @kayit.BaslangicZamani.ToString("HH:mm")
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="badge bg-dark border border-secondary px-3 py-2">@kayit.ToplamDakika dk</span>
+                        <a href="/Pomodoro/Sil/@kayit.KayitID" style="color: #71717a;" onclick="return confirm('Bu kaydı silmek istiyor musun?');" title="Sil">
+                            <i class="fa-solid fa-trash"></i>
+                        </a>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="p-4 text-center" style="color: #71717a;">
+                Henüz tamamlanmış bir Pomodoro seansı yok.
+            </div>
+        }
+    </div>
+</div>
+
+<script>
+    let secilenDakika = 25;
+    let baslangicSaniye = 25 * 60;
+    let kalanSaniye = baslangicSaniye;
+    let zamanlayici = null;
+
+    function ekraniGuncelle() {
+        const dk = Math.floor(kalanSaniye / 60);
+        const sn = kalanSaniye % 60;
+        const formatli = String(dk).padStart(2, '0') + ":" + String(sn).padStart(2, '0');
+        document.getElementById("timerDisplay").innerText = formatli;
+        document.title = formatli + " - Pomodoro";
+    }
+
+    function modSec(kayitDakikasi, saniye, buton) {
+        clearInterval(zamanlayici);
+        zamanlayici = null;
+        secilenDakika = kayitDakikasi;
+        baslangicSaniye = saniye;
+        kalanSaniye = saniye;
+
+        document.getElementById("ozelDakika").value = kayitDakikasi;
+        document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+        if (buton) buton.classList.add("active");
+
+        document.getElementById("btnBaslat").innerHTML = '<i class="fa-solid fa-play me-1"></i> Başlat';
+        document.getElementById("durumMesaji").innerText = "";
+        ekraniGuncelle();
+    }
+
+    function ozelSureAyarla() {
+        const girilen = parseInt(document.getElementById("ozelDakika").value);
+        if (isNaN(girilen) || girilen < 1 || girilen > 300) {
+            document.getElementById("durumMesaji").innerText = "1 ile 300 dakika arasında bir süre girin.";
+            return;
+        }
+        modSec(girilen, girilen * 60, null);
+        document.getElementById("durumMesaji").innerText = girilen + " dakika olarak ayarlandı.";
+    }
+
+    function baslatDurdur() {
+        const btn = document.getElementById("btnBaslat");
+        if (zamanlayici) {
+            clearInterval(zamanlayici);
+            zamanlayici = null;
+            btn.innerHTML = '<i class="fa-solid fa-play me-1"></i> Devam Et';
+        } else {
+            btn.innerHTML = '<i class="fa-solid fa-pause me-1"></i> Duraklat';
+            zamanlayici = setInterval(() => {
+                if (kalanSaniye > 0) {
+                    kalanSaniye--;
+                    ekraniGuncelle();
+                } else {
+                    clearInterval(zamanlayici);
+                    zamanlayici = null;
+                    seansiBitirVeKaydet();
+                }
+            }, 1000);
+        }
+    }
+
+    function sifirla() {
+        clearInterval(zamanlayici);
+        zamanlayici = null;
+        kalanSaniye = baslangicSaniye;
+        document.getElementById("btnBaslat").innerHTML = '<i class="fa-solid fa-play me-1"></i> Başlat';
+        document.getElementById("durumMesaji").innerText = "";
+        ekraniGuncelle();
+    }
+
+    function bildirimSesiCal() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            osc.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.4);
+        } catch (e) { }
+    }
+
+    async function seansiBitirVeKaydet() {
+        bildirimSesiCal();
+        const etiket = document.getElementById("dersEtiketi").value;
+        const mesajAlani = document.getElementById("durumMesaji");
+        mesajAlani.innerText = "Seans tamamlandı! Veritabanına kaydediliyor...";
+
+        try {
+            const cevap = await fetch('/Pomodoro/Kaydet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    toplamDakika: secilenDakika,
+                    dersEtiketi: etiket
+                })
+            });
+
+            if (cevap.ok) {
+                mesajAlani.innerText = "SQL veritabanına kaydedildi! Liste güncelleniyor...";
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                mesajAlani.innerText = "Kayıt sırasında hata oluştu.";
+            }
+        } catch (err) {
+            mesajAlani.innerText = "Sunucuya bağlanılamadı.";
+        }
+    }
+</script>

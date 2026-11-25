@@ -1,0 +1,46 @@
+@model KisiselAjandaWeb.Models.BagimsizNot
+@{
+    ViewData["Title"] = "Notu Güncelle";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var kategoriler = ViewBag.Kategoriler as List<KisiselAjandaWeb.Models.Kategori>;
+}
+
+<style>
+    .form-card { max-width: 700px; margin: 1rem auto; background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 25px; }
+    .dark-label { color: #a1a1aa; font-weight: 500; font-size: 0.9rem; margin-bottom: 8px; display: block; }
+    .dark-input { background-color: #27272a; border: 1px solid #3f3f46; color: #fff; border-radius: 8px; padding: 10px 14px; width: 100%; margin-bottom: 18px; }
+    .dark-input:focus { border-color: #f59e0b; outline: none; }
+</style>
+
+<div class="form-card">
+    <h4 class="mb-4 pb-3" style="border-bottom: 1px solid #27272a;"><i class="fa-solid fa-pen-to-square text-warning me-2"></i> Notu Güncelle</h4>
+
+    <form asp-controller="Notlar" asp-action="Guncelle" method="post">
+        <input type="hidden" asp-for="NotID" />
+
+        <label class="dark-label">Kategori (İsteğe Bağlı)</label>
+        <select asp-for="KategoriID" class="dark-input">
+            <option value="">-- Kategorisiz (Serbest Not) --</option>
+            @if (kategoriler != null)
+            {
+                foreach (var kat in kategoriler)
+                {
+                    <option value="@kat.KategoriID">@kat.KategoriAdi</option>
+                }
+            }
+        </select>
+
+        <label class="dark-label">Not Başlığı (İsteğe Bağlı)</label>
+        <input type="text" asp-for="Baslik" class="dark-input" maxlength="200" autocomplete="off" />
+
+        <label class="dark-label">İçerik</label>
+        <textarea asp-for="Icerik" class="dark-input" rows="6" required></textarea>
+
+        <div class="d-flex justify-content-between mt-2">
+            <a href="/Notlar/Index" class="btn btn-outline-secondary" style="border-radius: 8px;">Geri Dön</a>
+            <button type="submit" class="btn btn-warning" style="border-radius: 8px; font-weight: 600;">
+                <i class="fa-solid fa-check me-1"></i> Değişiklikleri Kaydet
+            </button>
+        </div>
+    </form>
+</div>
